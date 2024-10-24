@@ -93,6 +93,7 @@ func parseRemindEventsJSON(str string) ([]Event, error) {
 		Filename string
 		Lineno   int
 		Body     string
+		Passthru string
 	}
 	type MonthDescriptor struct{ Entries []Entry }
 
@@ -104,11 +105,15 @@ func parseRemindEventsJSON(str string) ([]Event, error) {
 
 	for _, md := range mds {
 		for _, entry := range md.Entries {
+			if entry.Passthru != "" {
+				// ignore SPECIAL reminders
+				continue
+			}
 			t, err := time.Parse("2006-01-02", entry.Date)
 			if err != nil {
 				return eventsArr, fmt.Errorf("Could not parse REM Event date %s: %w", entry.Date, err)
 			}
-			event, err := NewEvent(t.Year(), int(t.Month()), t.Day(), entry.Body)
+			event, err := NewEvent(t.Year(), int(t.Month()), t.Day(), UnescapeRemindString(entry.Body))
 			if err != nil {
 				return eventsArr, err
 			}
@@ -121,6 +126,36 @@ func parseRemindEventsJSON(str string) ([]Event, error) {
 	}
 
 	return eventsArr, nil
+}
+
+// UnescapeRemindString processes strings to remove the escape sequences
+// and returns the text up to the end of the first escaped string.
+func UnescapeRemindString(input string) string {
+	// Find the starting index of the escaped string (i.e., %")
+	startIndex := strings.Index(input, "%\"")
+	if startIndex == -1 {
+		// No escaped string found, return the original string as it is
+		return input
+	}
+
+	// Find the closing escaped sequence (i.e., %")
+	endIndex := strings.Index(input[startIndex+2:], "%\"")
+	if endIndex == -1 {
+		// If there is no closing escape, return the whole string from start
+		return input[:startIndex]
+	}
+
+	// Adjust endIndex to include the closing escape sequence
+	endIndex += startIndex + 2
+
+	// Extract the string before the escaped portion
+	escapedPortion := input[:startIndex]
+
+	// Extract and unescape the string between the escapes
+	unescapedPart := strings.ReplaceAll(input[startIndex:endIndex+2], "%\"", "")
+
+	// Return the combination of the initial part and the unescaped string
+	return escapedPortion + unescapedPart
 }
 
 // Parses line of simple format specified according to remind source code ( remind -s )
