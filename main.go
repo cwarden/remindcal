@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -167,13 +168,24 @@ func NewEvent(year int, month int, day int, message string) (e Event, err error)
 	return
 }
 
+func defaultRemindersPath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(homeDir, ".reminders")
+}
+
 func main() {
-	if len(os.Args) < 2 {
+	filename := defaultRemindersPath()
+	if len(os.Args) == 2 {
+		filename = os.Args[1]
+	}
+	if len(os.Args) > 2 || filename == "" {
 		fmt.Printf("Usage: remindcal filename\n")
 		os.Exit(1)
 	}
-	filename := os.Args[1]
-	todayWinEnabled := false
+	todayWinEnabled := true
 	debug := false
 	DrawingLoop(filename, todayWinEnabled, debug)
 }
